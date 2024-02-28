@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>이미지 업로드</title>
+    <!-- 부트스트랩 CSS 링크 추가 -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #progress {
+        width: 100px; /* 프로그레스 바 크기 조정 */
+        height: 100px; /* 프로그레스 바 크기 조정 */
+        position: relative;
+        border-radius: 50%;
+        background-color: #f0f0f0;
+      }
+
+      #progress-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background-color: #4caf50;
+        text-align: center;
+        line-height: 100px; /* 프로그레스 바 크기 조정 */
+        color: white;
+        font-size: 16px; /* 폰트 크기 조정 */
+        font-weight: bold;
+      }
+
+      /* 폼 요소 크기 조정 */
+      .container input[type="file"],
+      .container select,
+      .container input[type="date"],
+      .container button {
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 16px; /* 폰트 크기 조정 */
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container">
+        <a class="navbar-brand" href="/">현장 사진 올리기</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item">
+              <a class="navbar-brand" href="/map">업로드 이미지 지도보기</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <div class="container mt-5">
+      <h1>현장 사진 올리기</h1>
+      <form
+        id="uploadForm"
+        action="/upload"
+        method="post"
+        enctype="multipart/form-data"
+      >
+        <!-- 이미지 선택을 위한 input file (multiple 속성 추가) -->
+        <div class="form-group">
+          <label for="imageInput">이미지 선택:</label>
+          <input
+            type="file"
+            class="form-control-file"
+            id="imageInput"
+            name="images"
+            accept="image/jpeg"
+            multiple
+            required
+          />
+        </div>
+        <!-- 공사현장 선택을 위한 select box -->
+        <div class="form-group">
+          <label for="constructionSite">공사현장:</label>
+          <select
+            class="form-control"
+            id="constructionSite"
+            name="constructionSite"
+            required
+          >
+            <option value="현장1">현장1</option>
+            <option value="현장2">현장2</option>
+            <option value="현장3">현장3</option>
+            <option value="현장4">현장4</option>
+            <!-- 필요한 현장을 추가할 수 있습니다. -->
+          </select>
+        </div>
+        <!-- 날짜 선택을 위한 input 태그 -->
+        <div class="form-group">
+          <label for="datePicker">날짜 선택:</label>
+          <input
+            type="date"
+            class="form-control"
+            id="datePicker"
+            name="date"
+            required
+          />
+        </div>
+        <!-- 이미지 업로드 버튼 -->
+        <button type="submit" class="btn btn-primary">업로드</button>
+      </form>
+    </div>
+
+    <!-- 프로그레스 바 -->
+    <div class="overlay" id="progressOverlay" style="display: none">
+      <div id="progress">
+        <div
+          id="progress-bar"
+          class="progress-bar"
+          role="progressbar"
+          aria-valuenow="0"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          0%
+        </div>
+      </div>
+    </div>
+
+    <!-- 부트스트랩 JavaScript 링크 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      const form = document.getElementById("uploadForm");
+      const progressBar = document.getElementById("progress-bar");
+      const progressOverlay = document.getElementById("progressOverlay");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+
+        // 프로그레스 바 표시
+        progressOverlay.style.display = "flex";
+
+        // 파일 업로드를 위한 XMLHttpRequest 객체 생성
+        const xhr = new XMLHttpRequest();
+
+        // 업로드 진행 상황 이벤트 설정
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 100;
+            progressBar.style.width = percentComplete + "%";
+            progressBar.textContent = percentComplete + "%";
+          }
+        };
+
+        // 업로드 완료 이벤트 설정
+        xhr.onload = () => {
+          progressBar.style.width = "100%";
+          progressBar.textContent = "100%";
+          setTimeout(() => {
+            progressBar.style.width = "0%";
+            progressBar.textContent = "0%";
+            // 프로그레스 바 숨기기
+            progressOverlay.style.display = "none";
+            // 폼 초기화
+            form.reset();
+          }, 500); // 업로드 완료 후 1초 후 프로그레스 바 초기화
+        };
+
+        // 서버로 파일 업로드 요청 전송
+        xhr.open("POST", form.action);
+        xhr.send(formData);
+      });
+    </script>
+  </body>
+</html>
+<h1></h1>
