@@ -27,7 +27,7 @@ const firestore = admin.firestore();
 const upload = multer({
   storage: multer.memoryStorage(), // 파일을 메모리에 저장하여 사용할 수 있도록 설정
   limits: {
-    fileSize: 5 * 1024 * 1024, // 파일 크기 제한 설정 (5MB)
+    fileSize: 20 * 1024 * 1024, // 파일 크기 제한 설정 (5MB)
     files: 10, // 최대 파일 개수 설정
   },
 });
@@ -36,9 +36,22 @@ const upload = multer({
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+// 정적 파일을 제공하기 위한 미들웨어 추가
+app.use(express.static(path.join(__dirname, "public")));
+
 // 루트 경로
 app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
+  res.sendFile(path.join(__dirname + "/index.html"));
+});
+
+//  로고경로
+app.get("/picture", (req, res) => {
+  fs.readFile("./lgogo.pbg", function (err, data) {
+    console.log("picture loading...");
+    res.writeHead(200);
+    res.write(data);
+    res.end();
+  });
 });
 
 // 업로드 지도 보기 페이지 라우트
@@ -55,45 +68,158 @@ app.get("/map", async (req, res) => {
     res.status(500).send("데이터 가져오기에 실패했습니다.");
   }
 });
+// "/constructionTypes" 엔드포인트 처리
+app.get("/constructionTypes", async (req, res) => {
+  try {
+    // Firestore에서 공종 데이터를 가져옴
+    const snapshot = await firestore.collection("photoinfo").get();
+    const constructionTypes = new Set();
+
+    // 가져온 데이터에서 공종 정보를 추출
+    snapshot.forEach((doc) => {
+      constructionTypes.add(doc.data().constructionType);
+    });
+
+    // Set을 배열로 변환하여 클라이언트에게 전달
+    res.json(Array.from(constructionTypes));
+  } catch (error) {
+    console.error("Error fetching construction types:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching construction types." });
+  }
+});
+// "/search" 엔드포인트 처리
+app.get("/search1", async (req, res) => {
+  try {
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    let query = firestore.collection("photoinfo");
+
+    if (startDate && endDate) {
+      query = query.where("date", ">=", startDate).where("date", "<=", endDate);
+    }
+
+    const snapshot = await query.get();
+    const result = {};
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const constructionSite = data.constructionSite;
+      const constructionType = data.constructionType;
+
+      // 현장별로 데이터를 그룹화하고, 각 그룹에 공종별로 카운트
+      if (!result[constructionSite]) {
+        result[constructionSite] = {};
+      }
+
+      if (!result[constructionSite][constructionType]) {
+        result[constructionSite][constructionType] = 0;
+      }
+
+      result[constructionSite][constructionType]++;
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("문서 검색 중 오류 발생:", error);
+    res.status(500).json({ error: "문서 검색 중 오류가 발생했습니다." });
+  }
+});
+
 // "/search" 엔드포인트 처리
 app.get("/search", async (req, res) => {
   try {
     const constructionSite = req.query.constructionSite;
-    const date = req.query.date;
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+    const constructionType = req.query.constructionType;
 
     let query = firestore.collection("photoinfo");
 
     // 조건에 따라 쿼리 조정
-    if (constructionSite) {
+    if (constructionSite !== "전체") {
       query = query.where("constructionSite", "==", constructionSite);
     }
-    if (date) {
-      query = query.where("date", "==", date);
+    if (startDate) {
+      query = query.where("date", ">=", startDate);
     }
+    if (endDate) {
+      query = query.where("date", "<=", endDate);
+    }
+    if (constructionType !== "전체") {
+      query = query.where("constructionType", "==", constructionType);
+    }
+
     const snapshot = await query.get();
     const result = [];
     snapshot.forEach((doc) => {
-      console.log(doc.data("imageUrl"));
       result.push(doc.data());
     });
     res.json(result);
   } catch (error) {
-    console.error("Error searching documents:", error);
-    res
-      .status(500)
-      .json({ error: "An error occurred while searching documents." });
+    console.error("문서 검색 중 오류 발생:", error);
+    res.status(500).json({ error: "문서 검색 중 오류가 발생했습니다." });
   }
 });
+
+// "/aggregate" 엔드포인트 처리
+app.get("/aggregate", async (req, res) => {
+  try {
+    let query = firestore.collection("photoinfo");
+
+    // 검색 조건이 있을 경우에만 조건을 추가
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+    if (startDate && endDate) {
+      query = query.where("date", ">=", startDate).where("date", "<=", endDate);
+    }
+    // 날짜를 내림차순으로 정렬
+    query = query.orderBy("date", "desc");
+    const snapshot = await query.get();
+    const aggregateData = {}; // 현장 및 공종별 이미지 수를 집계할 객체
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const date = data.date;
+      const site = data.constructionSite;
+      const type = data.constructionType;
+
+      // 데이터를 일자별, 현장별, 공종별로 그룹화하여 이미지 수를 집계
+      if (!aggregateData[date]) {
+        aggregateData[date] = {};
+      }
+      if (!aggregateData[date][site]) {
+        aggregateData[date][site] = {};
+      }
+      if (!aggregateData[date][site][type]) {
+        aggregateData[date][site][type] = 0;
+      }
+      aggregateData[date][site][type]++;
+    });
+
+    res.render("aggregate", { aggregateData: aggregateData });
+  } catch (error) {
+    console.error("Error fetching aggregate data:", error);
+    res.status(500).send("집계 데이터 가져오기에 실패했습니다.");
+  }
+});
+
 // '/download' 엔드포인트 처리
 app.get("/download", async (req, res) => {
   try {
     const constructionSite = req.query.constructionSite;
+    const constructionType = req.query.constructionType;
+
     const date = req.query.date;
     const { default: got } = await import("got"); // got 모듈을 올바르게 불러옴
     // Firestore에서 이미지 다운로드 URL 가져오기
     const querySnapshot = await firestore
       .collection("photoinfo")
       .where("constructionSite", "==", constructionSite)
+      .where("constructionType", "==", constructionType)
+
       .where("date", "==", date)
       .get();
 
@@ -108,12 +234,12 @@ app.get("/download", async (req, res) => {
       imageUrl = doc.data().imageUrl;
       downloadUrls.push({
         imageUrl: imageUrl,
-        fileName: `${constructionSite}_${date}_${Date.now()}.jpg`, // 파일명에 현재 시간 추가하여 중복 방지
+        fileName: `${date}_${constructionSite}_${constructionType}_${Date.now()}.jpg`, // 파일명에 현재 시간 추가하여 중복 방지
       });
     });
 
     // 이미지 다운로드 및 압축
-    const zipPath = constructionSite + "_" + date + ".zip";
+    const zipPath = `${date}_${constructionSite}_${constructionType}.zip`;
     const output = fs.createWriteStream(zipPath);
     const archive = archiver("zip", { zlib: { level: 9 } });
     for (const imageInfo of downloadUrls) {
@@ -162,13 +288,15 @@ app.post("/upload", upload.array("images", 10), async (req, res) => {
       }
 
       // 파일 크기 제한 확인
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 20 * 1024 * 1024) {
         // 5MB 이하의 파일만 허용
         return res.status(400).send("이미지 파일 크기는 5MB 이하여야 합니다.");
       }
     }
 
     const constructionSite = req.body.constructionSite;
+    const constructionType = req.body.constructionType;
+
     const date = req.body.date;
 
     // 각 이미지 파일에 대해 처리
@@ -208,6 +336,7 @@ app.post("/upload", upload.array("images", 10), async (req, res) => {
       // Firestore에 이미지 정보 및 좌표값 저장
       await firestore.collection("photoinfo").add({
         constructionSite: constructionSite,
+        constructionType: constructionType,
         date: date,
         imageUrl: imageUrl,
         latitude: latitude,

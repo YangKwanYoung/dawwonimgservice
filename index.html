@@ -60,15 +60,19 @@
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container">
-        <a class="navbar-brand" href="/">현장 사진 올리기</a>
+        <!-- 로고 -->
+        <a class="navbar-brand" href="/">
+          <img
+            src="/logo.png"
+            alt="로고 이미지"
+            width="50"
+            height="50"
+            class="d-inline-block align-top"
+          />
+        </a>
+        <a class="navbar-brand" href="/">이미지등록</a>
 
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-              <a class="navbar-brand" href="/map">업로드 이미지 지도보기</a>
-            </li>
-          </ul>
-        </div>
+        <!-- 토글 버튼 -->
         <button
           class="navbar-toggler"
           type="button"
@@ -80,6 +84,18 @@
         >
           <span class="navbar-toggler-icon"></span>
         </button>
+
+        <!-- 메뉴 -->
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item">
+              <a class="nav-link" href="/map">이미지 조회(지도형)</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/aggregate">이미지 조회(표타입)</a>
+            </li>
+          </ul>
+        </div>
       </div>
     </nav>
     <div class="container mt-5">
@@ -112,11 +128,39 @@
             name="constructionSite"
             required
           >
-            <option value="현장1">현장1</option>
+            <option value="농어촌공사_홍성현장">농어촌공사_홍성현장</option>
             <option value="현장2">현장2</option>
             <option value="현장3">현장3</option>
             <option value="현장4">현장4</option>
             <!-- 필요한 현장을 추가할 수 있습니다. -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="constructionType">공종:</label>
+          <select
+            class="form-control"
+            id="constructionType"
+            name="constructionType"
+            required
+          >
+            <optgroup label="양수장">
+              <option value="양수장 - 토목">토목</option>
+              <option value="양수장 - 건축">건축</option>
+              <option value="양수장 - 기계">기계</option>
+              <option value="양수장 - 전기">전기</option>
+              <option value="양수장 - 소방">소방</option>
+            </optgroup>
+            <optgroup label="토출수조">
+              <option value="토출수조 - 토목">토목</option>
+              <option value="토출수조 - 건축">건축</option>
+            </optgroup>
+            <optgroup label="용수로">
+              <option value="용수로 - 용수간선">용수간선</option>
+              <option value="용수로 - 용수지선">용수지선</option>
+            </optgroup>
+            <optgroup label="부대공사">
+              <option value="부대공사">부대공사</option>
+            </optgroup>
           </select>
         </div>
         <!-- 날짜 선택을 위한 input 태그 -->
