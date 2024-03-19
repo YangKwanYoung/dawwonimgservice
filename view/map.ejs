@@ -29,7 +29,7 @@
         height: auto;
       }
       .modal-content {
-        background-color: transparent;
+        background-color: #fff; /* 모달 창 내용의 배경색을 흰색으로 설정 */
         border: none;
       }
       .modal-dialog {
@@ -45,20 +45,31 @@
       .img-fluid:hover {
         transform: scale(1.05);
       }
+      .image-label {
+          display: block; /* 라벨을 블록 수준 요소로 표시하여 이미지 아래에 위치하도록 설정 */
+          margin-bottom: 5px; /* 이미지와 라벨 사이의 간격 조정 */
+          font-size: 14px; /* 라벨의 글꼴 크기 설정 */
+          font-weight: bold; /* 라벨 텍스트의 굵기 설정 */
+          color: #333; /* 라벨 텍스트의 색상 설정 */
+    }
     </style>
   </head>
   <body>
-   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container">
-        <a class="navbar-brand" href="/">현장 사진 올리기</a>
+        <!-- 로고 -->
+        <a class="navbar-brand" href="/">
+          <img
+            src="/logo.png"
+            alt="로고 이미지"
+            width="50"
+            height="50"
+            class="d-inline-block align-top"
+          />
+        </a>
+        <a class="navbar-brand">이미지 조회(지도형)</a>
 
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-              <a class="navbar-brand" href="/map">업로드 이미지 지도보기</a>
-            </li>
-          </ul>
-        </div>
+        <!-- 토글 버튼 -->
         <button
           class="navbar-toggler"
           type="button"
@@ -70,6 +81,19 @@
         >
           <span class="navbar-toggler-icon"></span>
         </button>
+
+        <!-- 메뉴 -->
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item">
+              <a class="nav-link" href="/">이미지 등록 </a>
+                        </li>
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/aggregate">이미지 조회(표타입)</a>
+            </li>
+          </ul>
+        </div>
       </div>
     </nav>
     <div class="container mt-5">
@@ -78,6 +102,7 @@
         <div class="col-md-4">
           <label for="constructionSite" class="form-label">공사현장:</label>
           <select id="constructionSite" class="form-select">
+            <option value="전체">전체</option>
             <!-- 중복 제거한 공사현장 목록을 동적으로 추가 -->
             <% const uniqueConstructionSites = [...new Set(photos.map(photo =>
             photo.constructionSite))]; %> <%
@@ -87,16 +112,28 @@
           </select>
         </div>
         <div class="col-md-4">
-          <label for="datePicker" class="form-label">날짜:</label>
-          <input type="date" id="datePicker" class="form-control" />
+          <label for="startDatePicker" class="form-label">시작 날짜:</label>
+          <input type="date" id="startDatePicker" class="form-control" />
         </div>
-        <div class="col-md-4 d-flex align-items-end">
-          <button onclick="search()" class="btn btn-primary">검색</button>
-          <button onclick="downloadImages()" class="btn btn-primary mx-2">이미지 다운로드</button>            
-          </button>
-          <button onclick="viewImages()" class="btn btn-primary">이미지 보기</button>
+        <div class="col-md-4">
+          <label for="endDatePicker" class="form-label">종료 날짜:</label>
+          <input type="date" id="endDatePicker" class="form-control" />
+        </div>
+        <div class="col-md-4">
+          <label for="constructionType" class="form-label">공종:</label>
+          <select id="constructionType" class="form-select">
+            <option value="전체">전체</option>
+            <!-- 여기에 서버에서 가져온 공종 목록을 동적으로 추가 -->
+          </select>
         </div>
       </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <button onclick="search()" class="btn btn-primary mx-2" >검색</button>
+          <!-- <button onclick="downloadImages()" class="btn btn-primary mx-2">이미지 다운로드</button>            
+          </button> -->
+          <button onclick="viewImages()" class="btn btn-primary" >이미지 보기</button>
+        </div>
+      </div> 
       <div id="map"></div>
     </div>
  <!-- 이미지 모달 -->
@@ -160,40 +197,81 @@
 
         markers.push(marker);
       }
+      async function search1() {
+    const constructionSite = document.getElementById("constructionSite").value;
+    const startDate = document.getElementById("startDatePicker").value;
+    const endDate = document.getElementById("endDatePicker").value;
+    const constructionType = document.getElementById("constructionType").value;
 
-      
+    // 검색 조건 미선택 확인
+    if (!constructionSite || !startDate || !endDate) {
+        alert("공사현장, 시작 날짜, 종료 날짜를 선택해주세요.");
+        return;
+    }
 
+    // 서버에 검색 요청을 보냄
+    const response = await fetch(
+        `/search?constructionSite=${constructionSite}&startDate=${startDate}&endDate=${endDate}&constructionType=${constructionType}`
+    );
+    const data = await response.json();
 
-      async function search() {
-        const constructionSite =
-          document.getElementById("constructionSite").value;
-        const date = document.getElementById("datePicker").value;
-        // 검색 조건 미선택 확인
-        if (!constructionSite || !date) {
-          alert("공사현장 또는 날짜를 선택해주세요.");
-          return;
-        }
-        // 서버에 검색 요청을 보냄
-        const response = await fetch(
-          `/search?constructionSite=${constructionSite}&date=${date}`
-        );
-        const data = await response.json();
-        // 검색 결과가 있는 경우
-        if(data.length > 0 ){
-        if (data.length > 0) {
-          // 첫 번째 결과의 좌표로 지도 이동 
-          map.setCenter({ lat: data[0].latitude, lng: data[0].longitude });
-          map.setZoom(12); // 지도 확대
-        }
+    // 검색 결과가 있는 경우
+    if (data.length > 0) {
+        // 첫 번째 결과의 좌표로 지도 이동 
+        map.setCenter({ lat: data[0].latitude, lng: data[0].longitude });
+        map.setZoom(12); // 지도 확대
+        
+        // 날짜, 현장, 공종별 집계값을 담을 객체 초기화
+        const markerLabels = {};
+
         // 검색 결과를 받아와 마커를 추가
         clearMarkers();
         data.forEach((item) => {
-          const label = `${item.constructionSite} - ${item.date}`; // 마커 라벨 설정
-          addMarker(item.latitude, item.longitude, label, "https://storage.googleapis.com/itfimgsaveservice.appspot.com"+item.imageUrl );
+            const date = item.date;
+            const constructionSite = item.constructionSite;
+            const constructionType = item.constructionType;  
+            const label = `${date} - ${constructionSite} - ${constructionType}}`; // 마커 라벨 설정
+            addMarker(item.latitude, item.longitude, label, "https://storage.googleapis.com/itfimgsaveservice.appspot.com"+item.imageUrl );
         });
-        }else{
-          alert("선택하신 조건에 등록된 이미지가 없습니다.") ;
+    } else {
+        alert("선택하신 조건에 등록된 이미지가 없습니다.");
+    }
+}
+
+
+      async function search() {
+        const constructionSite = document.getElementById("constructionSite").value;
+        const startDate = document.getElementById("startDatePicker").value;
+        const endDate = document.getElementById("endDatePicker").value;
+        const constructionType = document.getElementById("constructionType").value;
+
+        // 검색 조건 미선택 확인
+        if (!constructionSite || !startDate || !endDate) {
+          alert("공사현장, 시작 날짜, 종료 날짜를 선택해주세요.");
+          return;
         }
+
+        // 서버에 검색 요청을 보냄
+        const response = await fetch(
+          `/search?constructionSite=${constructionSite}&startDate=${startDate}&endDate=${endDate}&constructionType=${constructionType}`
+        );
+        const data = await response.json();
+              // 검색 결과가 있는 경우
+              if(data.length > 0 ){ 
+              if (data.length > 0) {
+                // 첫 번째 결과의 좌표로 지도 이동 
+                map.setCenter({ lat: data[0].latitude, lng: data[0].longitude });
+                map.setZoom(12); // 지도 확대
+              }
+              // 검색 결과를 받아와 마커를 추가
+              clearMarkers();
+              data.forEach((item) => {
+                const label = `${item.constructionSite} - ${item.date}`; // 마커 라벨 설정
+                addMarker(item.latitude, item.longitude, label, "https://storage.googleapis.com/itfimgsaveservice.appspot.com"+item.imageUrl );
+              });
+              }else{
+                alert("선택하신 조건에 등록된 이미지가 없습니다.") ;
+              }
       }
 
       async function downloadImages() {
@@ -225,15 +303,20 @@
       }
       async function viewImages() {
         const constructionSite = document.getElementById("constructionSite").value;
-        const date = document.getElementById("datePicker").value;
-        if (!constructionSite || !date) {
-          alert("공사현장 또는 날짜를 선택해주세요.");
+        const startDate = document.getElementById("startDatePicker").value;
+        const endDate = document.getElementById("endDatePicker").value;
+        const constructionType = document.getElementById("constructionType").value;
+
+      // 검색 조건 미선택 확인
+      if (!constructionSite || !startDate || !endDate) {
+          alert("공사현장, 시작 날짜, 종료 날짜를 선택해주세요.");
           return;
-        }
+      }
         const imageGrid = document.getElementById("imageGrid");
         imageGrid.innerHTML = ""; // 이미지 그리드 비우기
+        // 서버에 검색 요청을 보냄
         const response = await fetch(
-          `/search?constructionSite=${constructionSite}&date=${date}`
+          `/search?constructionSite=${constructionSite}&startDate=${startDate}&endDate=${endDate}&constructionType=${constructionType}`
         );
         const data = await response.json();
         if (data.length > 0) {
@@ -242,9 +325,15 @@
             const img = document.createElement("img");
             img.src = imageUrl;
             img.className = "img-fluid";
+            const captionText = `현장: ${item.constructionSite}, 공종: ${item.constructionType}, 날짜: ${item.date}`;
+            const label = document.createElement("label");
+            label.textContent = captionText; // 캡션 텍스트 설정
+            label.className = "image-label"; // 추가적인 스타일링을 위해 클래스 추가
+            // 라벨과 이미지를 함께 묶어서 출력
             const col = document.createElement("div");
             col.className = "col-md-4 mb-3";
-            col.appendChild(img);
+            col.appendChild(label); // 라벨 추가
+            col.appendChild(img); // 이미지 추가
             imageGrid.appendChild(col);
           });
           const modal = new bootstrap.Modal(document.getElementById("imageModal"));
@@ -253,10 +342,41 @@
           alert("선택하신 조건에 등록된 이미지가 없습니다.");
         }
       }
+      // 공종 데이터를 가져오고 셀렉트 박스를 채우는 함수
+async function fetchConstructionTypes() {
+  try {
+    const response = await fetch('/constructionTypes');
+    const constructionTypes = await response.json();
+
+    const constructionTypeSelect = document.getElementById('constructionType');
+
+    // 기존 옵션 제거
+    constructionTypeSelect.innerHTML = '';
+
+    // 전체 옵션 추가
+    const allOption = document.createElement('option');
+    allOption.value = '전체';
+    allOption.textContent = '전체';
+    constructionTypeSelect.appendChild(allOption);
+
+    // 서버에서 받아온 공종 데이터를 옵션으로 추가
+    constructionTypes.forEach(type => {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = type;
+      constructionTypeSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error fetching construction types:', error);
+  }
+}
+      // 페이지 로드 시 공종 데이터를 가져와 셀렉트 박스를 채움
+      window.onload = function() {
+        fetchConstructionTypes();
+      };
     </script> 
        
      
-    </script>
 
     <!-- 부트스트랩 JavaScript 링크 추가 -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
