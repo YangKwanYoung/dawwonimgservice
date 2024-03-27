@@ -284,17 +284,62 @@
             const img = document.createElement("img");
             img.src = imageUrl;
             img.className = "img-fluid";
+
             const captionText = `현장: ${item.constructionSite}, 공종: ${item.constructionType}, 날짜: ${item.date}`;
             const label = document.createElement("label");
             label.textContent = captionText; // 캡션 텍스트 설정
             label.className = "image-label"; // 추가적인 스타일링을 위해 클래스 추가
-            // 라벨과 이미지를 함께 묶어서 출력
-            const col = document.createElement("div");
-            col.className = "col-md-4 mb-3";
-            col.appendChild(label); // 라벨 추가
-            col.appendChild(img); // 이미지 추가
-            imageGrid.appendChild(col);
+
+            // 이미지와 삭제 버튼을 담는 div 요소 생성
+            const container = document.createElement("div");
+            container.className = "image-container";
+
+            // 삭제 버튼 생성
+            const deleteButton = document.createElement("button");
+            deleteButton.textContent = "Delete";
+            deleteButton.className = "btn btn-danger delete-button";
+
+            // 이미지와 삭제 버튼을 함께 컨테이너에 추가
+            container.appendChild(img);
+            container.appendChild(label);
+            container.appendChild(deleteButton);
+
+            // 이미지 그리드에 컨테이너 추가
+            imageGrid.appendChild(container);
+            console.log("imageGrid:", imageGrid);
+            console.log("container:", container);
+            // 삭제 버튼 클릭 시 이미지 삭제
+            deleteButton.addEventListener("click", async () => {
+              // 이미지 삭제를 위한 서버 요청 보내기
+              const deleteResponse = await fetch(`/deleteImage?id=${item.id}`, {
+                method: "DELETE",
+              });
+
+              if (deleteResponse.ok) {
+                // 이미지 그리드에서 삭제된 이미지 제거
+                container.remove();
+                alert("이미지가 삭제되었습니다.");
+                console.log("imageGrid:", imageGrid);
+                console.log("container:", container);
+                // 디버깅: 이미지 그리드의 자식 요소 개수 확인
+                console.log(
+                  "이미지 그리드의 자식 요소 개수:",
+                  imageGrid.children.length
+                );
+
+                // 삭제된 후 이미지가 0개일 경우 모달 창 닫기
+                if (imageGrid.children.length === 0) {
+                  const modal = new bootstrap.Modal(
+                    document.getElementById("imageModal")
+                  );
+                  modal.hide();
+                }
+              } else {
+                alert("이미지 삭제 중 오류가 발생했습니다.");
+              }
+            });
           });
+
           const modal = new bootstrap.Modal(
             document.getElementById("imageModal")
           );
@@ -302,6 +347,23 @@
         } else {
           alert("선택하신 조건에 등록된 이미지가 없습니다.");
         }
+      }
+
+      function refreshParentData() {
+        // 새로운 시작 날짜와 종료 날짜를 사용하여 데이터를 조회합니다.
+        // 여기서는 fetch를 사용하여 서버로 데이터 조회 요청을 보내고,
+        // 받아온 데이터를 가공하거나 화면에 출력하는 등의 작업을 수행합니다.
+        const startDate = document.getElementById("startDate").value;
+        const endDate = document.getElementById("endDate").value;
+        fetch(`/aggregate?startDate=${startDate}&endDate=${endDate}`)
+          .then((response) => response.json())
+          .then((data) => {
+            // 받아온 데이터를 사용하여 부모 창의 화면을 업데이트합니다.
+            // 예를 들어, 받아온 데이터를 사용하여 테이블을 재구성하거나 화면을 다시 그리는 등의 작업을 수행합니다.
+          })
+          .catch((error) =>
+            console.error("데이터 새로고침 중 오류 발생:", error)
+          );
       }
     </script>
   </body>
