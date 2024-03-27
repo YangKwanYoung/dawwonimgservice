@@ -2,6 +2,7 @@ const express = require("express");
 const admin = require("firebase-admin");
 const multer = require("multer");
 const ExifParser = require("exif-parser");
+const ExifImage = require("exif").ExifImage;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,7 +47,7 @@ app.get("/", (req, res) => {
 
 //  로고경로
 app.get("/picture", (req, res) => {
-  fs.readFile("./lgogo.pbg", function (err, data) {
+  fs.readFile("./lgogo.pblhhg", function (err, data) {
     console.log("picture loading...");
     res.writeHead(200);
     res.write(data);
@@ -155,7 +156,10 @@ app.get("/search", async (req, res) => {
     const snapshot = await query.get();
     const result = [];
     snapshot.forEach((doc) => {
-      result.push(doc.data());
+      // 각 문서의 ID를 데이터에 추가하여 결과에 포함
+      const data = doc.data();
+      data.id = doc.id;
+      result.push(data);
     });
     res.json(result);
   } catch (error) {
@@ -290,7 +294,122 @@ app.post("/upload", upload.array("images", 10), async (req, res) => {
       // 파일 크기 제한 확인
       if (file.size > 20 * 1024 * 1024) {
         // 5MB 이하의 파일만 허용
-        return res.status(400).send("이미지 파일 크기는 5MB 이하여야 합니다.");
+        return res.status(400).send("이미지 파일 크기는 20MB 이하여야 합니다.");
+      }
+    }
+
+    const constructionSite = req.body.constructionSite;
+    const constructionType = req.body.constructionType;
+    const date = req.body.date;
+
+    // 각 이미지 파일에 대해 처리
+    for (const file of req.files) {
+      // 이미지 파일 업로드
+      const fileName = Date.now() + "_" + encodeURIComponent(file.originalname);
+      const metadata = {
+        contentType: file.mimetype,
+      };
+
+      // 파일을 로컬 디스크에 저장
+      const localFilePath = `${__dirname}/${fileName}`;
+      fs.writeFileSync(localFilePath, file.buffer);
+
+      // 이미지 파일 업로드
+      await bucket.upload(localFilePath, {
+        destination: fileName,
+        metadata: metadata,
+      });
+
+      // 이미지 파일 업로드 후 로컬 파일 삭제
+      fs.unlinkSync(localFilePath);
+
+      // 이미지 파일의 다운로드 URL 가져오기
+      const imageUrl = `/${fileName}`;
+
+      // EXIF 데이터에서 좌표값 추출
+      let latitude = null;
+      let longitude = null;
+      const exifParser = ExifParser.create(file.buffer);
+      const exifResult = exifParser.parse();
+      if (
+        exifResult.tags &&
+        exifResult.tags.GPSLatitude &&
+        exifResult.tags.GPSLongitude
+      ) {
+        console.log(
+          "exifResult.tags.GPSLatitude" + exifResult.tags.GPSLatitude
+        );
+        console.log(
+          "exifResult.tags.GPSLongitude" + exifResult.tags.GPSLongitude
+        );
+        latitude = exifResult.tags.GPSLatitude;
+        longitude = exifResult.tags.GPSLongitude;
+
+        //  latitude = gpsLatitude[0] + gpsLatitude[1] / 60 + gpsLatitude[2] / 3600;
+        //  longitude = gpsLongitude[0] + gpsLongitude[1] / 60 + gpsLongitude[2] / 3600;
+      }
+
+      // Firestore에 이미지 정보 및 좌표값 저장
+      await firestore.collection("photoinfo").add({
+        constructionSite: constructionSite,
+        constructionType: constructionType,
+        date: date,
+        imageUrl: imageUrl,
+        latitude: latitude,
+        longitude: longitude,
+      });
+    }
+
+    res.status(200).redirect("/");
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    res.status(500).send("이미지 업로드에 실패했습니다.");
+  }
+});
+// "/deleteImage" 엔드포인트 처리
+app.delete("/deleteImage", async (req, res) => {
+  try {
+    const docId = req.query.id; // 이미지의 Firestore 문서 ID
+    // Firestore에서 해당 이미지 문서 가져오기
+    const imageDoc = await firestore.collection("photoinfo").doc(docId).get();
+    if (!imageDoc.exists) {
+      return res.status(404).json({ message: "이미지를 찾을 수 없습니다." });
+    }
+    console.log(`imageDoc ${imageDoc.data().imageUrl}`); // 이미지 URL 출력
+    const imageUrl = imageDoc.data().imageUrl; // 삭제할 이미지의 URL
+    // 이미지 URL에서 파일명 추출
+    const fileName = imageUrl.split("/").pop();
+    // Firebase Storage에서 이미지 삭제
+    await bucket.file(fileName).delete();
+    // Firestore에서 이미지 문서 삭제
+    await firestore.collection("photoinfo").doc(docId).delete();
+    res.status(200).json({ message: "이미지가 성공적으로 삭제되었습니다." });
+  } catch (error) {
+    console.error("이미지 삭제 중 오류 발생:", error);
+    res.status(500).json({ error: "이미지 삭제 중 오류가 발생했습니다." });
+  }
+});
+
+// 파일 업로드 엔드포인트
+app.post("/upload1", upload.array("images", 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send("이미지를 선택하세요.");
+    }
+
+    // 업로드된 각 파일에 대한 처리
+    for (const file of req.files) {
+      // 업로드된 파일이 JPEG 형식인지 확인
+      if (file.mimetype !== "image/jpeg") {
+        return res
+          .status(400)
+          .send("올바른 JPEG 형식의 이미지를 업로드하세요.");
+      }
+
+      // 파일 크기 제한 확인
+      if (file.size > 20 * 1024 * 1024) {
+        // 5MB 이하의 파일만 허용
+        return res.status(400).send("이미지 파일 크기는 20MB 이하여야 합니다.");
       }
     }
 
