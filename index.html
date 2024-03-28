@@ -238,8 +238,31 @@
 
         // 서버로 파일 업로드 요청 전송
         xhr.open("POST", form.action);
+
+        xhr.onerror = () => {
+          alert("파일 업로드 중 에러 발생");
+          progressBar.style.display = "none";
+        };
+
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState == XMLHttpRequest.DONE) {
+            if (xhr.status == 400) {
+              alert(xhr.responseText);
+              progressOverlay.style.display = "none";
+              form.reset();
+            }
+          }
+        };
         xhr.send(formData);
       });
+      // 오늘 날짜 가져오기
+      const today = new Date();
+      const year = today.getFullYear();
+      let month = (today.getMonth() + 1).toString().padStart(2, "0"); // 두 자리로 맞추기 위해 padStart 사용
+      let day = today.getDate().toString().padStart(2, "0"); // 두 자리로 맞추기 위해 padStart 사용
+
+      // 오늘 날짜 설정
+      document.getElementById("datePicker").value = `${year}-${month}-${day}`;
     </script>
   </body>
 </html>

@@ -218,14 +218,21 @@ app.get("/download", async (req, res) => {
 
     const date = req.query.date;
     const { default: got } = await import("got"); // got 모듈을 올바르게 불러옴
-    // Firestore에서 이미지 다운로드 URL 가져오기
-    const querySnapshot = await firestore
-      .collection("photoinfo")
-      .where("constructionSite", "==", constructionSite)
-      .where("constructionType", "==", constructionType)
 
-      .where("date", "==", date)
-      .get();
+    let query = firestore.collection("photoinfo");
+
+    // 조건에 따라 쿼리 조정
+    if (constructionSite) {
+      query = query.where("constructionSite", "==", constructionSite);
+    }
+    if (date) {
+      query = query.where("date", "==", date);
+    }
+    if (constructionType !== "전체") {
+      query = query.where("constructionType", "==", constructionType);
+    }
+    const querySnapshot = await query.get();
+    // Firestore에서 이미지 다운로드 URL 가져오기
 
     // 데이터가 없을 때 경고창 띄우기
     if (querySnapshot.empty) {
@@ -238,7 +245,9 @@ app.get("/download", async (req, res) => {
       imageUrl = doc.data().imageUrl;
       downloadUrls.push({
         imageUrl: imageUrl,
-        fileName: `${date}_${constructionSite}_${constructionType}_${Date.now()}.jpg`, // 파일명에 현재 시간 추가하여 중복 방지
+        fileName: `촬영일_${date}_${constructionSite}_${
+          doc.data().constructionType
+        }_${Date.now()}.jpg`, // 파일명에 현재 시간 추가하여 중복 방지
       });
     });
 
