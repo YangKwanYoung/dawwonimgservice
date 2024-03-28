@@ -155,6 +155,27 @@
   </div>
 </div>
     <script>
+      // 오늘 날짜 가져오기
+      const today = new Date();
+
+      // 일주일 전 날짜 계산
+      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      const sYear = oneWeekAgo.getFullYear();
+      let sMonth = (oneWeekAgo.getMonth() + 1).toString().padStart(2, '0');
+      let sDay = oneWeekAgo.getDate().toString().padStart(2, '0');
+
+      // 일주일 전 날짜 설정
+      document.getElementById('startDatePicker').value = `${sYear}-${sMonth}-${sDay}`;
+      const eYear = today.getFullYear();
+      let eMonth = (today.getMonth() + 1).toString().padStart(2, "0"); // 두 자리로 맞추기 위해 padStart 사용
+      let eDay = today.getDate().toString().padStart(2, "0"); // 두 자리로 맞추기 위해 padStart 사용
+
+      // 오늘 날짜 설정
+      document.getElementById("endDatePicker").value = `${eYear}-${eMonth}-${eDay}`;
+
+
+
       let map;
       let markers = [];
 
@@ -229,11 +250,10 @@ async function search() {
             addMarker(item.latitude, item.longitude, label, "https://storage.googleapis.com/itfimgsaveservice.appspot.com" + item.imageUrl);
         });
 
-        // 클러스터링 라이브러리 사용
-        // const markerCluster = new MarkerClusterer(map, markers, {
-        //     imagePath: "https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m",
-        // });
-
+         //클러스터링 라이브러리 사용
+         const markerCluster = new MarkerClusterer(map, markers, {
+             imagePath: "https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m",
+         });
         
     } else {
         alert("선택하신 조건에 등록된 이미지가 없습니다.");
@@ -294,7 +314,11 @@ async function search() {
             const img = document.createElement("img");
             img.src = imageUrl;
             img.className = "img-fluid";
-
+            // 이미지 클릭 시 전체 화면에 표시
+            img.addEventListener("click", () => {
+                    // 이미지 URL을 가져와서 새 창에 이미지를 표시합니다.
+                    window.open(imageUrl, "_blank", "fullscreen=yes");
+                });
             const captionText = `현장: ${item.constructionSite}, 공종: ${item.constructionType}, 날짜: ${item.date}`;
             const label = document.createElement("label");
             label.textContent = captionText; // 캡션 텍스트 설정
@@ -317,9 +341,25 @@ async function search() {
                 });
 
                 if (deleteResponse.ok) {
-                    // 이미지 그리드에서 삭제된 이미지 제거 
-                    container.remove();
-                    alert("이미지가 삭제되었습니다.");
+                    // 이미지 그리드에서 삭제된 이미지 제거
+                container.remove();
+                alert("이미지가 삭제되었습니다.");
+                console.log(
+                  "이미지 삭제후 그리드의 자식 요소 개수:",
+                  imageGrid.children.length
+                );
+                // 삭제된 후 이미지가 0개일 경우 모달 창 닫기
+                if (imageGrid.children.length === 0) {
+                  console.log("imageGrid:", imageGrid);
+                  console.log("container:", container);
+                  // 디버깅: 이미지 그리드의 자식 요소 개수 확인
+                  console.log(
+                    "이미지 전체 삭제(0) 그리드의 자식 요소 개수:",
+                    imageGrid.children.length
+                  );
+                  modal.hide();    
+                  location.reload(); // 페이지 새로고침             
+                }
                 } else {
                     alert("이미지 삭제 중 오류가 발생했습니다.");
                 }

@@ -153,40 +153,35 @@
               <th>현장</th>
               <th>공종</th>
               <th>이미지 수</th>
-              <th>이미지 다운로드</th>
               <th>이미지 보기</th>
             </tr>
           </thead>
           <tbody>
             <% Object.entries(aggregateData).forEach(([date, siteData]) => { %>
             <% Object.entries(siteData).forEach(([site, typeData]) => { %> <%
-            Object.entries(typeData).forEach(([type, count]) => { %>
+            Object.entries(typeData).forEach(([type, count], index) => { %>
             <tr>
               <!-- 날짜는 현장 및 공종 데이터가 처음 나올 때만 표시 -->
-              <% if (site === Object.keys(siteData)[0] && type ===
-              Object.keys(typeData)[0]) { %>
+              <% if (index === 0) { %>
               <td rowspan="<%= Object.keys(typeData).length %>"><%= date %></td>
-              <% } %>
-              <!-- 현장은 공종 데이터가 처음 나올 때만 표시 -->
-              <% if (type === Object.keys(typeData)[0]) { %>
-              <td rowspan="<%= Object.keys(typeData).length %>"><%= site %></td>
+              <td rowspan="<%= Object.keys(typeData).length %>">
+                <%= site %><br /><button
+                  onclick="downloadImages('<%= date %>', '<%= site %>')"
+                  class="btn btn-primary mx-2"
+                >
+                  다운로드
+                </button>
+              </td>
               <% } %>
               <td><%= type %></td>
               <td><%= count %></td>
-              <td>
-                <button
-                  onclick="downloadImages('<%= date %>', '<%= site %>', '<%= type %>')"
-                  class="btn btn-primary mx-2"
-                >
-                  이미지 다운로드
-                </button>
-              </td>
+              <!-- 이미지 보기 버튼은 공종 데이터가 처음 나올 때만 표시 -->
               <td>
                 <button
                   onclick="viewImages('<%= date %>', '<%= site %>', '<%= type %>')"
                   class="btn btn-primary mx-2"
                 >
-                  이미지 보기
+                  공종별 이미지 보기
                 </button>
               </td>
             </tr>
@@ -200,6 +195,7 @@
       <div
         class="modal fade"
         id="imageModal"
+        data-bs-backdrop="static"
         tabindex="-1"
         aria-labelledby="imageModalLabel"
         aria-hidden="true"
@@ -207,10 +203,13 @@
         <div class="modal-dialog modal-dialog-centered modal-xl">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title" id="imageModalLabel">이미지 보기</h5>
+              <h5 class="modal-title" id="imageModalLabel">
+                공종별 이미지 보기
+              </h5>
               <button
                 type="button"
                 class="btn-close"
+                id="closeModalButton"
                 data-bs-dismiss="modal"
                 aria-label="Close"
               ></button>
@@ -235,6 +234,24 @@
 
     <script>
       // 폼 서브미트 시 검색 실행
+      // 오늘 날짜 가져오기
+      const today = new Date();
+
+      // 일주일 전 날짜 계산
+      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      const sYear = oneWeekAgo.getFullYear();
+      let sMonth = (oneWeekAgo.getMonth() + 1).toString().padStart(2, "0");
+      let sDay = oneWeekAgo.getDate().toString().padStart(2, "0");
+
+      // 일주일 전 날짜 설정
+      document.getElementById("startDate").value = `${sYear}-${sMonth}-${sDay}`;
+      const eYear = today.getFullYear();
+      let eMonth = (today.getMonth() + 1).toString().padStart(2, "0"); // 두 자리로 맞추기 위해 padStart 사용
+      let eDay = today.getDate().toString().padStart(2, "0"); // 두 자리로 맞추기 위해 padStart 사용
+
+      // 오늘 날짜 설정
+      document.getElementById("endDate").value = `${eYear}-${eMonth}-${eDay}`;
       document
         .getElementById("searchForm")
         .addEventListener("submit", function (event) {
@@ -251,13 +268,13 @@
       async function downloadImages(date, site, type) {
         // 서버에 검색 요청을 보냄
         const response = await fetch(
-          `/search?constructionSite=${site}&startDate=${date}&endDate=${date}&constructionType=${type}`
+          `/search?constructionSite=${site}&startDate=${date}&endDate=${date}&constructionType=전체`
         );
         const data = await response.json();
         // 검색 결과가 있는 경우
         if (data.length > 0) {
           // 이미지 다운로드 URL 생성
-          const url = `/download?constructionSite=${site}&date=${date}&constructionType=${type}`;
+          const url = `/download?constructionSite=${site}&date=${date}&constructionType=전체`;
           // 이미지 다운로드 링크 생성
           const link = document.createElement("a");
           link.href = url;
@@ -284,6 +301,11 @@
             const img = document.createElement("img");
             img.src = imageUrl;
             img.className = "img-fluid";
+            // 이미지 클릭 시 전체 화면에 표시
+            img.addEventListener("click", () => {
+              // 이미지 URL을 가져와서 새 창에 이미지를 표시합니다.
+              window.open(imageUrl, "_blank", "fullscreen=yes");
+            });
 
             const captionText = `현장: ${item.constructionSite}, 공종: ${item.constructionType}, 날짜: ${item.date}`;
             const label = document.createElement("label");
@@ -299,15 +321,6 @@
             deleteButton.textContent = "Delete";
             deleteButton.className = "btn btn-danger delete-button";
 
-            // 이미지와 삭제 버튼을 함께 컨테이너에 추가
-            container.appendChild(img);
-            container.appendChild(label);
-            container.appendChild(deleteButton);
-
-            // 이미지 그리드에 컨테이너 추가
-            imageGrid.appendChild(container);
-            console.log("imageGrid:", imageGrid);
-            console.log("container:", container);
             // 삭제 버튼 클릭 시 이미지 삭제
             deleteButton.addEventListener("click", async () => {
               // 이미지 삭제를 위한 서버 요청 보내기
@@ -319,25 +332,34 @@
                 // 이미지 그리드에서 삭제된 이미지 제거
                 container.remove();
                 alert("이미지가 삭제되었습니다.");
-                console.log("imageGrid:", imageGrid);
-                console.log("container:", container);
-                // 디버깅: 이미지 그리드의 자식 요소 개수 확인
                 console.log(
-                  "이미지 그리드의 자식 요소 개수:",
+                  "이미지 삭제후 그리드의 자식 요소 개수:",
                   imageGrid.children.length
                 );
-
                 // 삭제된 후 이미지가 0개일 경우 모달 창 닫기
                 if (imageGrid.children.length === 0) {
-                  const modal = new bootstrap.Modal(
-                    document.getElementById("imageModal")
+                  console.log("imageGrid:", imageGrid);
+                  console.log("container:", container);
+                  // 디버깅: 이미지 그리드의 자식 요소 개수 확인
+                  console.log(
+                    "이미지 전체 삭제(0) 그리드의 자식 요소 개수:",
+                    imageGrid.children.length
                   );
                   modal.hide();
+                  location.reload(); // 페이지 새로고침
                 }
               } else {
                 alert("이미지 삭제 중 오류가 발생했습니다.");
               }
             });
+
+            // 이미지와 삭제 버튼을 함께 컨테이너에 추가
+            container.appendChild(img);
+            container.appendChild(label);
+            container.appendChild(deleteButton);
+
+            // 이미지 그리드에 컨테이너 추가
+            imageGrid.appendChild(container);
           });
 
           const modal = new bootstrap.Modal(
@@ -350,20 +372,19 @@
       }
 
       function refreshParentData() {
-        // 새로운 시작 날짜와 종료 날짜를 사용하여 데이터를 조회합니다.
-        // 여기서는 fetch를 사용하여 서버로 데이터 조회 요청을 보내고,
-        // 받아온 데이터를 가공하거나 화면에 출력하는 등의 작업을 수행합니다.
-        const startDate = document.getElementById("startDate").value;
-        const endDate = document.getElementById("endDate").value;
-        fetch(`/aggregate?startDate=${startDate}&endDate=${endDate}`)
-          .then((response) => response.json())
-          .then((data) => {
-            // 받아온 데이터를 사용하여 부모 창의 화면을 업데이트합니다.
-            // 예를 들어, 받아온 데이터를 사용하여 테이블을 재구성하거나 화면을 다시 그리는 등의 작업을 수행합니다.
-          })
-          .catch((error) =>
-            console.error("데이터 새로고침 중 오류 발생:", error)
-          );
+        // 폼 서브미트 시 검색 실행
+        document
+          .getElementById("searchForm")
+          .addEventListener("submit", function (event) {
+            event.preventDefault(); // 기본 동작 방지
+
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+
+            // 검색 조건을 URL 파라미터로 추가하여 페이지 이동
+            const url = `/aggregate?startDate=${startDate}&endDate=${endDate}`;
+            window.location.href = url;
+          });
       }
     </script>
   </body>
